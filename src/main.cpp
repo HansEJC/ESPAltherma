@@ -35,17 +35,20 @@
 
 // Minimal BLE globals
 #ifdef ENABLE_BLE
-  bool deviceConnected = false;
+  bool bleConnected = false;
   BLECharacteristic *pBleChar = NULL;
-
   class BleCallbacks: public BLEServerCallbacks {
   public:
       void onConnect(BLEServer* pServer) override {
-          deviceConnected = true;
+          bleConnected = true;
+          Serial.println("BLE client connected");
       }
+      
       void onDisconnect(BLEServer* pServer) override {
-          deviceConnected = false;
-          pServer->startAdvertising();  // Simplified restart
+          bleConnected = false;
+          Serial.println("BLE client disconnected");
+          // Restart advertising
+          BLEDevice::startAdvertising();
       }
   };
 #endif
@@ -400,26 +403,32 @@ void setup()
   mqttSerial.print("ESPAltherma started!");
 
   #ifdef ENABLE_BLE
+    Serial.println("Initializing BLE...");
+    
     // Minimal BLE setup
-    BLEDevice::init("HeatPump");
+    BLEDevice::init("ESPAltherma");
     BLEServer *pServer = BLEDevice::createServer();
     pServer->setCallbacks(new BleCallbacks());
     
+    // Create service and characteristic
     BLEService *pService = pServer->createService(BLE_SERVICE_UUID);
-    
     pBleChar = pService->createCharacteristic(
         BLE_CHAR_UUID,
-        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+        BLECharacteristic::PROPERTY_READ | 
+        BLECharacteristic::PROPERTY_NOTIFY
     );
-    pBleChar->addDescriptor(new BLE2902());
+    pBleChar->addDescriptor(new BLE2902());  // Enable notifications
     
     pService->start();
     
-    // Minimal advertising
+    // Start advertising
     BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
     pAdvertising->setScanResponse(false);
-    pServer->getAdvertising()->start();
+    pAdvertising->setMinPreferred(0x06);  // functions better with iPhone
+    BLEDevice::startAdvertising();
+    
+    Serial.println("BLE advertising started");
   #endif
 }
 

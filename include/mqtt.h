@@ -29,11 +29,12 @@ PubSubClient client(espClient);
 #ifdef ENABLE_BLE
   #include <BLEDevice.h>
   #include <BLEServer.h>
+  #include <BLEUtils.h>
   #include <BLE2902.h>
-  extern bool deviceConnected;
-  extern BLECharacteristic *pBleChar;  // Single pointer instead of full server
-#define BLE_SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
-#define BLE_CHAR_UUID           "87654321-4321-4321-4321-cba987654321"
+  extern bool bleConnected;
+  extern BLECharacteristic *pBleChar;
+  #define BLE_SERVICE_UUID "12345678-1234-1234-1234-123456789abc"
+  #define BLE_CHAR_UUID    "87654321-4321-4321-4321-cba987654321"
   class BleCallbacks;
 #endif
 
@@ -59,9 +60,10 @@ void sendValues()
 #endif
 // Publish via BLE if client connected
 #ifdef ENABLE_BLE
-  if (deviceConnected && pBleChar != NULL) {
+ if (bleConnected && pBleChar != NULL) {
     pBleChar->setValue((uint8_t*)jsonbuff, strlen(jsonbuff));
     pBleChar->notify();
+    Serial.println("Published to BLE");
   }
 #endif
 #ifdef JSONTABLE
