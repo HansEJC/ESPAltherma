@@ -33,6 +33,23 @@
 #include "mqtt.h"
 #include "restart.h"
 
+// Minimal BLE globals
+#ifdef ENABLE_BLE
+  bool deviceConnected = false;
+  BLECharacteristic *pBleChar = NULL;
+
+  class BleCallbacks: public BLEServerCallbacks {
+  public:
+      void onConnect(BLEServer* pServer) override {
+          deviceConnected = true;
+      }
+      void onDisconnect(BLEServer* pServer) override {
+          deviceConnected = false;
+          pServer->startAdvertising();  // Simplified restart
+      }
+  };
+#endif
+
 Converter converter;
 char registryIDs[32]; //Holds the registries to query
 bool busy = false;
@@ -381,6 +398,29 @@ void setup()
 
   initRegistries();
   mqttSerial.print("ESPAltherma started!");
+
+  #ifdef ENABLE_BLE
+    // Minimal BLE setup
+    BLEDevice::init("HeatPump");
+    BLEServer *pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new BleCallbacks());
+    
+    BLEService *pService = pServer->createService(BLE_SERVICE_UUID);
+    
+    pBleChar = pService->createCharacteristic(
+        BLE_CHAR_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+    );
+    pBleChar->addDescriptor(new BLE2902());
+    
+    pService->start();
+    
+    // Minimal advertising
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
+    pAdvertising->setScanResponse(false);
+    pServer->getAdvertising()->start();
+  #endif
 }
 
 void waitLoop(uint ms){

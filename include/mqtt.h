@@ -25,6 +25,18 @@ WiFiClient espClient;
 #endif
 PubSubClient client(espClient);
 
+
+#ifdef ENABLE_BLE
+  #include <BLEDevice.h>
+  #include <BLEServer.h>
+  #include <BLE2902.h>
+  extern bool deviceConnected;
+  extern BLECharacteristic *pBleChar;  // Single pointer instead of full server
+#define BLE_SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
+#define BLE_CHAR_UUID           "87654321-4321-4321-4321-cba987654321"
+  class BleCallbacks;
+#endif
+
 void sendValues()
 {
   Serial.printf("Sending values in MQTT.\n");
@@ -45,7 +57,13 @@ void sendValues()
 #ifdef JSONTABLE
   strcat(jsonbuff,"]");
 #endif
-  client.publish(MQTT_attr, jsonbuff);
+// Publish via BLE if client connected
+#ifdef ENABLE_BLE
+  if (deviceConnected && pBleChar != NULL) {
+    pBleChar->setValue((uint8_t*)jsonbuff, strlen(jsonbuff));
+    pBleChar->notify();
+  }
+#endif
 #ifdef JSONTABLE
   strcpy(jsonbuff, "[{\0");
 #else
